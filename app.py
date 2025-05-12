@@ -28,9 +28,14 @@ def store():
 
 @app.route('/search', methods=['POST'])
 def search_query():
-    body = request.get_json()
-    jawaban = getAnswer(body["question"])
-    return jawaban
+    try :
+        body = request.get_json()
+        jawaban = getAnswer(body["question"])
+        return jawaban
+    except FileNotFoundError as e:
+        return e, 404
+    except Exception:
+        return "internal server error", 500
 
 
 if __name__ == '__main__':

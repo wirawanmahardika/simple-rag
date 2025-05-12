@@ -1,11 +1,12 @@
+from functools import lru_cache
 from transformers import AutoTokenizer, AutoModel
+from pathlib import Path
 import torch
 import faiss
 import pickle
 import requests
 import os
 import numpy as np
-from functools import lru_cache
 
 # 1. Cache Model dan Index (Hidup selama aplikasi berjalan)
 @lru_cache(maxsize=None)
@@ -49,8 +50,14 @@ def generate_embeddings(texts, tokenizer, model, device, is_query=False):
     return torch.nn.functional.normalize(embeddings, p=2, dim=1).cpu().numpy()
 
 # 3. Fungsi Jawaban yang Dioptimalkan
-def getAnswer(query, top_k=3, temperature=0.3):
+def getAnswer(query, top_k=3):
     try:
+        docsPkl = Path('./build/docs.pkl')
+        faissIndexFile = Path('./build/index.faiss')
+
+        if not docsPkl.exists() or not faissIndexFile.exists():
+            raise FileNotFoundError("sistem belum dilatih")
+
         # Muat sumber daya yang diperlukan
         tokenizer, model, device, index, docs = load_resources()
         
@@ -82,17 +89,6 @@ def getAnswer(query, top_k=3, temperature=0.3):
         Pertanyaan:
         {query}
         """
-        # prompt = f"""Berdasarkan konteks di bawah, jawab pertanyaan dengan:
-        #     - Faktual dan spesifik
-        #     - Sertakan poin utama dari dokumen relevan
-        #     - Jika tidak ada jawaban, sampaikan dengan jujur
-        #     - Format respons: aliran logis dengan poin-poin bernomor
-
-        #     Konteks:
-        #     {context}
-
-        #     Pertanyaan: {query}
-        # """
 
         # 5. Gemini API Call dengan Optimasi
         geminiKey = os.getenv("GEMINI_API_KEY")
@@ -112,10 +108,7 @@ def getAnswer(query, top_k=3, temperature=0.3):
         res_json = res.json()
         return res_json["candidates"][0]["content"]["parts"][0]["text"]
             
+    except FileNotFoundError:
+        return "sistem belum dilatih"
     except Exception as e:
         return f"System Error: {str(e)}"
-
-# # Contoh Penggunaan
-# if __name__ == "__main__":
-#     query = "Apa keuntungan menggunakan RAG?"
-#     print(getAnswer(query))
