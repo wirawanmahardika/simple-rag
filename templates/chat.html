@@ -1,31 +1,31 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Naspad Talk - Chat Room</title>
-  <link rel="stylesheet" href="chat.css">
+  <link rel="stylesheet" href="/chat.css">
 </head>
+
 <body>
   <div class="chat-container">
     <div class="chat-header">
       <img src="ikan.png" alt="Bot" class="bot-logo">
       <h2>Naspad Talk</h2>
     </div>
-    
+
     <div class="chat-box" id="chatBox">
       <div class="bot-message">Hai, ada yang bisa aku bantu?</div>
     </div>
-    
+
     <form class="chat-input-area" enctype="multipart/form-data">
       <div class="input-wrapper">
-        
-        <!-- Label custom untuk input file -->
-        <label for="fileInput" class="file-label">Tambah File</label>
-        <input type="file" id="fileInput" accept="image/*, .pdf, .txt, .docx">
-
         <input type="text" id="userInput" placeholder="Ketik pesan di sini..." required>
-        <button type="submit"><img src="kirim.png" alt="Kirim"></button>
+        <button type="submit"
+          style="background: #fbb03b; color: #fff; border: none; border-radius: 6px; padding: 8px 18px; font-size: 16px; cursor: pointer; transition: background 0.2s; margin-left: 4px;">
+          Kirim
+        </button>
       </div>
     </form>
   </div>
@@ -34,30 +34,17 @@
     const form = document.querySelector('.chat-input-area');
     form.addEventListener('submit', function (event) {
       event.preventDefault();
-      
       const userMessage = document.getElementById('userInput').value;
-      const fileInput = document.getElementById('fileInput').files[0];
-
-      // Tampilkan pesan teks
       if (userMessage) {
         const messageElement = document.createElement('div');
         messageElement.classList.add('user-message');
         messageElement.textContent = userMessage;
         document.getElementById('chatBox').appendChild(messageElement);
       }
-
-      // Tampilkan nama file jika ada
-      if (fileInput) {
-        const fileElement = document.createElement('div');
-        fileElement.classList.add('file-message');
-        fileElement.textContent = `File: ${fileInput.name}`;
-        document.getElementById('chatBox').appendChild(fileElement);
-      }
-
-      // Reset form
       document.getElementById('userInput').value = '';
       document.getElementById('fileInput').value = '';
     });
   </script>
 </body>
+
 </html>

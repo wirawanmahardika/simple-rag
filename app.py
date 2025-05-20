@@ -7,9 +7,13 @@ app = Flask(__name__, static_folder="public", static_url_path="/")
 CORS(app)
 
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+@app.route('/chat')
+def chat():
+    return render_template('chat.html')
+
+@app.route('/input')
+def input():
+    return render_template('input.html')
 
 @app.route('/store', methods=["POST"])
 def store():
