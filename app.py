@@ -7,7 +7,7 @@ app = Flask(__name__, static_folder="public", static_url_path="/")
 CORS(app)
 
 
-@app.route('/chat')
+@app.route('/')
 def chat():
     return render_template('chat.html')
 

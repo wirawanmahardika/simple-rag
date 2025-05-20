@@ -1,40 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Input File Menu</title>
-    <link rel="stylesheet" href="input.css" />
-  </head>
-  <body>
-    <div class="container">
-      <div class="file-box">
-        <label for="fileInput" class="file-label">
-          <div class="icon">📁</div>
-          <div class="label-text">Masukkan File</div>
-        </label>
-        <input type="file" id="fileInput" class="file-input" />
 
-        <div class="previewFolder">
-          <div class="file-preview" id="filePreview">
-            Belum ada file dipilih.
-          </div>
-          <button>kirim</button>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Input File Menu</title>
+  <link rel="stylesheet" href="/input.css" />
+</head>
+
+<body>
+  <div class="container">
+    <form class="file-box">
+      <label for="fileInput" class="file-label">
+        <div class="icon">📁</div>
+        <div class="label-text">Masukkan File</div>
+      </label>
+      <input type="file" name="file" id="fileInput" class="file-input" />
+
+      <div class="previewFolder">
+        <div class="file-preview" id="filePreview">
+          Belum ada file dipilih.
         </div>
+        <button>kirim</button>
       </div>
-    </div>
+    </form>
+  </div>
 
-    <script>
-      const fileInput = document.getElementById("fileInput");
-      const filePreview = document.getElementById("filePreview");
+  <div id="toast"
+    style="display:none;position:fixed;bottom:30px;right:30px;min-width:200px;padding:16px 24px;background:#323232;color:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.2);font-size:16px;z-index:9999;transition:opacity 0.3s;">
+    <span id="toast-message"></span>
+  </div>
 
-      fileInput.addEventListener("change", function () {
-        if (fileInput.files.length > 0) {
-          filePreview.textContent = `File yang dipilih: ${fileInput.files[0].name}`;
-        } else {
-          filePreview.textContent = "Belum ada file dipilih.";
-        }
-      });
-    </script>
-  </body>
+  <script>
+    function showToast(message, duration = 3000) {
+      const toast = document.getElementById("toast");
+      const toastMsg = document.getElementById("toast-message");
+      toastMsg.textContent = message;
+      toast.style.display = "block";
+      toast.style.opacity = "1";
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        setTimeout(() => {
+          toast.style.display = "none";
+        }, 300);
+      }, duration);
+    }
+
+
+    const fileInput = document.getElementById("fileInput");
+    const filePreview = document.getElementById("filePreview");
+
+    fileInput.addEventListener("change", function () {
+      if (fileInput.files.length > 0) {
+        filePreview.textContent = `File yang dipilih: ${fileInput.files[0].name}`;
+      } else {
+        filePreview.textContent = "Belum ada file dipilih.";
+      }
+    });
+
+    const form = document.querySelector(".file-box");
+    form.addEventListener("submit", function (event) {
+      event.preventDefault(); // Mencegah pengiriman form default
+      showToast("Proses upload dimulai...");
+      const file = fileInput.files[0];
+      if (file) {
+        const formData = new FormData();
+        formData.append("file", file);
+        fetch("/store", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            showToast("File berhasil diunggah!")
+          })
+          .catch((error) => {
+            showToast("Terjadi kesalahan saat upload!");
+            // Tampilkan pesan kesalahan atau lakukan tindakan lain
+          });
+      }
+    });
+
+    // Contoh penggunaan:
+    // showToast("File berhasil diunggah!");
+
+    // Tambahkan ke fetch response di script utama:
+    // .then((data) => {
+    //   showToast("File berhasil diunggah!");
+    //   ...
+    // })
+    // .catch((error) => {
+    //   showToast("Terjadi kesalahan saat upload!", 4000);
+    //   ...
+    // });
+  </script>
+</body>
+
 </html>

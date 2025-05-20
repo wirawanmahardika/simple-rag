@@ -31,9 +31,7 @@
   </div>
 
   <script>
-    const form = document.querySelector('.chat-input-area');
-    form.addEventListener('submit', function (event) {
-      event.preventDefault();
+    function userMessaging() {
       const userMessage = document.getElementById('userInput').value;
       if (userMessage) {
         const messageElement = document.createElement('div');
@@ -42,7 +40,34 @@
         document.getElementById('chatBox').appendChild(messageElement);
       }
       document.getElementById('userInput').value = '';
-      document.getElementById('fileInput').value = '';
+      return userMessage
+    }
+
+    const botResponse = async (userMessage) => {
+      const messageElement = document.createElement('div');
+      messageElement.classList.add('bot-message');
+      messageElement.textContent = "Sedang memproses...";
+      messageElement.style.fontStyle = "italic";
+      document.getElementById('chatBox').appendChild(messageElement);
+      
+      const res = await fetch('/search', {
+        method: 'POST',
+        body: JSON.stringify({ question: userMessage }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const responseMessage = await res.text();
+      messageElement.style.fontStyle = "normal";
+      messageElement.textContent = responseMessage;
+    }
+
+    const form = document.querySelector('.chat-input-area');
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const userMessage = userMessaging()
+      await botResponse(userMessage)
     });
   </script>
 </body>
