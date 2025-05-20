@@ -7,26 +7,34 @@ import os
 import pickle
 
 def runBuild(docs):
-    # 1. Load Model Embedding
+    # 1. Load Model dan Tokenizer
     huggingFaceKey = os.getenv("HUGGING_FACE_KEY")
-    model_name = "intfloat/multilingual-e5-large"
+    model_name = "intfloat/multilingual-e5-small"
     
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=huggingFaceKey)
     model = AutoModel.from_pretrained(model_name, token=huggingFaceKey)
-    
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
-    model.eval()  # Mode inferensi
+    model.eval()
 
-    # 2. Fungsi Embedding dengan Batch (lebih efisien)
+    # 2. Fungsi Mean Pooling sesuai dokumentasi E5
+    def mean_pooling(model_output, attention_mask):
+        token_embeddings = model_output.last_hidden_state  # (batch_size, seq_len, hidden_size)
+        input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+        sum_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1)
+        sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+        return sum_embeddings / sum_mask
+
+    # 3. Fungsi untuk menghasilkan embedding dokumen
     def get_embeddings(texts, batch_size=8):
         embeddings = []
         for i in tqdm(range(0, len(texts), batch_size), desc="Memproses dokumen"):
             batch = texts[i:i+batch_size]
-            
-            # Format input sesuai spesifikasi model E5
+
+            # Tambahkan prefix "passage: " sesuai format E5
             batch = ["passage: " + text for text in batch]
-            
+
             inputs = tokenizer(
                 batch,
                 padding=True,
@@ -34,44 +42,37 @@ def runBuild(docs):
                 max_length=512,
                 return_tensors="pt"
             ).to(device)
-            
+
             with torch.no_grad():
                 outputs = model(**inputs)
-            
-            # Mean Pooling dengan normalisasi L2
-            last_hidden = outputs.last_hidden_state
-            attention_mask = inputs.attention_mask.unsqueeze(-1)
-            mean_embeddings = (last_hidden * attention_mask).sum(1) / attention_mask.sum(1)
-            mean_embeddings = torch.nn.functional.normalize(mean_embeddings, p=2, dim=1)
-            
-            embeddings.append(mean_embeddings.cpu().numpy())
-        
+
+            # Gunakan mean pooling dan normalisasi
+            embedding = mean_pooling(outputs, inputs["attention_mask"])
+            embedding = torch.nn.functional.normalize(embedding, p=2, dim=1)
+
+            embeddings.append(embedding.cpu().numpy())
+
         return np.concatenate(embeddings, axis=0)
 
     try:
-        # 3. Generate Embeddings
+        # 4. Generate Embeddings dari dokumen
         embeddings = get_embeddings(docs)
-        
-        # 4. Gunakan IndexFlatL2 (PALING COCOK untuk dataset kecil)
-        dim = embeddings.shape[1]  # Dimensionality vector
-        index = faiss.IndexFlatL2(dim)  # <-- INI PERUBAHAN UTAMA
-        
-        # Konversi ke float32 (wajib untuk FAISS)
-        index.add(embeddings.astype('float32'))
-        
-        # 5. Simpan Index dan Dokumen
+
+        # 5. Buat FAISS Index
+        dim = embeddings.shape[1]
+        index = faiss.IndexFlatL2(dim)
+        index.add(embeddings.astype("float32"))
+
+        # 6. Simpan Index dan Dokumen
         os.makedirs("./build", exist_ok=True)
-        
-        # Simpan dokumen asli (untuk ditampilkan saat retrieval)
+
         with open("./build/docs.pkl", "wb") as f:
             pickle.dump(docs, f)
-        
-        # Simpan index FAISS
+
         faiss.write_index(index, "./build/index.faiss")
-        
-        print("Sukses membangun index dengan IndexFlatL2!")
+
+        print("Sukses membangun index dengan IndexFlatL2 dan E5-small.")
         return None
-    
+
     except Exception as e:
         return f"Error: {str(e)}"
-    
