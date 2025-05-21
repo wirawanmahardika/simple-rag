@@ -10,7 +10,7 @@ import numpy as np
 
 @lru_cache(maxsize=None)
 def load_resources():
-    model_name = "intfloat/multilingual-e5-small"
+    model_name = "intfloat/multilingual-e5-base"
     huggingFaceKey = os.getenv("HUGGING_FACE_KEY")
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=huggingFaceKey)
     device = torch.device("cuda" if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory >= 4e9 else "cpu")
@@ -47,15 +47,54 @@ def generate_embeddings(texts, tokenizer, model, device, is_query=False):
     embeddings = sum_embeddings / sum_mask
     return torch.nn.functional.normalize(embeddings, p=2, dim=1).cpu().numpy()
 
+def rewrite_query_with_gemini(user_query):
+    # Meminta Gemini memperbaiki/menyempurnakan pertanyaan user agar lebih jelas, spesifik, dan optimal untuk retrieval.
+    geminiKey = os.getenv("GEMINI_API_KEY")
+    if not geminiKey:
+        return user_query  # fallback jika tidak ada API key
+
+    prompt = f"""
+    Perbaiki dan sempurnakan pertanyaan berikut agar menjadi lebih jelas, spesifik, dan mudah dipahami oleh mesin pencari dokumen (retriever). Hilangkan kata-kata ambigu, buat menjadi kalimat tanya yang eksplisit. Jangan jawab pertanyaannya, hanya perbaiki kalimatnya. Langsung saja berikan pertanyaan yang sudah diperbaiki, tidak perlu memberi opsi pertanyaan jika terdapat banyak opsi (pilihkan saja).
+
+    Pertanyaan asli:
+    {user_query}
+
+    Pertanyaan yang sudah diperbaiki:
+    """
+    try:
+        response = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={geminiKey}",
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "temperature": 0.2,
+                    "topP": 0.9,
+                    "maxOutputTokens": 64
+                }
+            },
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        response.raise_for_status()
+        improved_query = response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        # Ambil hanya baris pertama jika Gemini memberi jawaban panjang
+        print(f"Gemini response: {improved_query}")
+        improved_query = improved_query.split('\n')[0]
+        return improved_query
+    except Exception:
+        return user_query  # fallback jika gagal
+
+
 def getAnswer(query, top_k=3, temperature=0.3, nprobe=10):
     try:
+        query = rewrite_query_with_gemini(query)
         if not Path('./build/docs.pkl').exists() or not Path('./build/index.faiss').exists():
             return "Error: Sistem belum dilatih. Silakan jalankan training terlebih dahulu."
         tokenizer, model, device, index, docs = load_resources()
         if hasattr(index, 'nprobe'):
             index.nprobe = nprobe  # optimasi pencarian cluster
-        if index.d != 384:
-            return "Error: Index dimension mismatch! Expected 384 for e5-small"
+        if index.d != 768:
+            return "Error: Index dimension mismatch! Expected 768 for e5-base"
         query_embedding = generate_embeddings([query], tokenizer, model, device, is_query=True).astype("float32")
         scores, indices = index.search(query_embedding, top_k)
         if len(indices) == 0 or len(scores) == 0:

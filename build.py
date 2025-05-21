@@ -8,7 +8,7 @@ import pickle
 
 def runBuild(docs):
     huggingFaceKey = os.getenv("HUGGING_FACE_KEY")
-    model_name = "intfloat/multilingual-e5-small"
+    model_name = "intfloat/multilingual-e5-base"
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=huggingFaceKey)
     model = AutoModel.from_pretrained(model_name, token=huggingFaceKey)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
