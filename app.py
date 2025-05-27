@@ -1,46 +1,46 @@
-from flask import Flask, request, jsonify, render_template
+from fastapi import FastAPI, File, UploadFile, Request
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 import build
 from query import getAnswer
-from flask_cors import CORS
 
-app = Flask(__name__, static_folder="public", static_url_path="/")
-CORS(app)
+app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.route('/')
-def chat():
-    return render_template('chat.html')
+app.mount("/public", StaticFiles(directory="public"), name="public")
+templates = Jinja2Templates(directory="templates")
 
-@app.route('/input')
-def input():
-    return render_template('input.html')
+@app.get("/", response_class=HTMLResponse)
+async def get_chat(request: Request):
+    return templates.TemplateResponse("chat.html", {"request": request})
 
-@app.route('/store', methods=["POST"])
-def store():
-    if 'file' not in request.files:
-        return jsonify({"error": "Tidak ada file yang diunggah"}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "Nama file tidak valid"}), 400
-    
-    file_content = file.read().decode("utf-8")
-    docs = [line.strip() for line in file_content.splitlines() if line.strip()]
+@app.get("/input", response_class=HTMLResponse)
+async def get_input(request: Request):
+    return templates.TemplateResponse("input.html", {"request": request})
+
+@app.post("/store")
+async def post_store(file: UploadFile = File(...)):
+    if not file.filename:
+        return JSONResponse({"error": "Nama file tidak valid"}, status_code=400)
+    content = (await file.read()).decode("utf-8")
+    docs = [line.strip() for line in content.splitlines() if line.strip()]
     build.runBuild(docs)
-    return jsonify({"message": "File berhasil diunggah dan dibaca"})
+    return JSONResponse({"message": "File berhasil diunggah dan dibaca"})
 
-
-@app.route('/search', methods=['POST'])
-def search_query():
-    try :
-        body = request.get_json()
-        jawaban = getAnswer(body["question"])
+@app.post("/search")
+async def post_search(body: dict):
+    try:
+        jawaban = getAnswer(body.get("question", ""))
         return jawaban
     except FileNotFoundError as e:
-        return e, 404
+        return JSONResponse({"error": str(e)}, status_code=404)
     except Exception:
-        return "internal server error", 500
-
-
-if __name__ == '__main__':
-    app.run(debug=True)
+        return JSONResponse({"error": "internal server error"}, status_code=500)
