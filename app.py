@@ -5,6 +5,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import build
 from query import getAnswer
+import json
+from query import load_resources
 
 app = FastAPI()
 
@@ -31,9 +33,23 @@ async def post_store(file: UploadFile = File(...)):
     if not file.filename:
         return JSONResponse({"error": "Nama file tidak valid"}, status_code=400)
     content = (await file.read()).decode("utf-8")
-    docs = [line.strip() for line in content.splitlines() if line.strip()]
+    docs = []
+    if file.filename.endswith(".json"):
+        data = json.loads(content)
+        docs = [item["text"] for item in data if "text" in item]
+    elif file.filename.endswith(".jsonl"):
+        docs = []
+        for line in content.splitlines():
+            if line.strip():
+                obj = json.loads(line)
+                if "text" in obj:
+                    docs.append(obj["text"])
+    else:
+        docs = [line.strip() for line in content.splitlines() if line.strip()]
     build.runBuild(docs)
+    load_resources.cache_clear()
     return JSONResponse({"message": "File berhasil diunggah dan dibaca"})
+
 
 @app.post("/search")
 async def post_search(body: dict):

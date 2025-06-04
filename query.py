@@ -1,12 +1,14 @@
 from functools import lru_cache
 from transformers import AutoTokenizer, AutoModel
 from pathlib import Path
+from dotenv import load_dotenv
 import torch
 import faiss
 import pickle
 import requests
 import os
 
+load_dotenv()
 @lru_cache(maxsize=None)
 def load_resources():
     model_name = "intfloat/multilingual-e5-base"
@@ -46,7 +48,7 @@ def generate_embeddings(texts, tokenizer, model, device, is_query=False):
     embeddings = sum_embeddings / sum_mask
     return torch.nn.functional.normalize(embeddings, p=2, dim=1).cpu().numpy()
 
-def getAnswer(query, top_k=3, temperature=0.5, nprobe=10):
+def getAnswer(query, top_k=15, temperature=0.5, nprobe=10):
     try:
         if not Path('./build/docs.pkl').exists() or not Path('./build/index.faiss').exists():
             return "Error: Sistem belum dilatih. Silakan jalankan training terlebih dahulu."
@@ -64,7 +66,8 @@ def getAnswer(query, top_k=3, temperature=0.5, nprobe=10):
             f"[Doc {i+1} | Score: {score:.2f}]: {docs[idx] if 0 <= idx < len(docs) else 'INVALID_INDEX'}"
             for i, (idx, score) in enumerate(zip(indices[0], scores[0]))
         )
-        prompt = f"""Anda adalah LLM dalam sistem RAG yang bertugas menjawab pertanyaan berdasarkan konteks berikut. Jawaban harus tepat, langsung ke intinya, dan tidak perlu menyebut "menurut saya" atau sejenisnya. Jika tidak ada informasi yang relevan, jawab: "Saya tidak menemukan informasi yang relevan". Anda boleh menambahkan informasi terkait, tapi jangan menyimpang dari konteks. Jangan tulis informasi yang tidak relevan. Perbaiki jika ada informasi yang kurang tepat. Jangan gunakan simbol markdown seperti #, *, atau ---.
+        print("context ditemukan", context)
+        prompt = f"""Anda adalah LLM dalam sistem RAG yang bertugas menjawab pertanyaan berdasarkan konteks berikut. Jika tidak ada informasi yang relevan, jawab: "Saya tidak menemukan informasi yang relevan". Anda boleh menambahkan informasi terkait, tapi jangan menyimpang dari konteks. Perbaiki jika ada informasi yang kurang tepat. Tulis jawaban secara linear, jangan ada simbol yang tidak nyaman dibaca manusia dan tidak boleh juga ada list. Jangan menjawab dengan awalan seperti "berdasarkan konteks" dan semacamnya
 
         Konteks:
         {context}
