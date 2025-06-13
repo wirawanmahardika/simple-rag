@@ -5,8 +5,10 @@ import faiss
 import numpy as np
 import os
 import pickle
+from database.model import chats
+from database.db import database
 
-def runBuild(docs):
+async def runBuild(nama, docs):
     huggingFaceKey = os.getenv("HUGGING_FACE_KEY")
     model_name = "intfloat/multilingual-e5-base"
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=huggingFaceKey)
@@ -45,9 +47,12 @@ def runBuild(docs):
         embeddings = get_embeddings(docs)
         print("Jumlah dokumen baru:", len(docs))
         print("Shape embeddings baru:", embeddings.shape)
-        os.makedirs("./build", exist_ok=True)
-        index_path = "./build/index.faiss"
-        docs_path = "./build/docs.pkl"
+        index_path = f"./build/{nama}/index.faiss"
+        docs_path = f"./build/{nama}/docs.pkl"
+
+        # Pastikan direktori dan subfolder sudah ada
+        os.makedirs(os.path.dirname(index_path), exist_ok=True)
+        os.makedirs(os.path.dirname(docs_path), exist_ok=True)
 
         # Gabungkan dengan data lama jika ada
         if os.path.exists(index_path) and os.path.exists(docs_path):
@@ -74,8 +79,8 @@ def runBuild(docs):
             pickle.dump(all_docs, f)
         faiss.write_index(index, index_path)
 
-        print("Sukses membangun/menambah index (IndexFlatL2).")
-        return None
+        query = chats.insert().values(name=nama, path=docs_path, index_path=index_path)
+        return await database.execute(query)
 
     except Exception as e:
         print(f"Error: {str(e)}")

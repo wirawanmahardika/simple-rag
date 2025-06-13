@@ -29,6 +29,23 @@
         <div class="label-text">Masukkan File</div>
       </label>
       <input type="file" name="file" id="fileInput" class="file-input" />
+      <div style="margin: 16px 0; width: 100%;">
+        <label for="namaInput" style="display:block; font-weight:500; margin-bottom:6px; color:#232946;">
+          Nama Dataset
+        </label>
+        <input type="text" name="nama" id="namaInput" placeholder="Masukkan nama dataset" required style="
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1.5px solid #b8c1ec;
+      font-size: 15px;
+      background: #f4f6fb;
+      color: #232946;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color 0.2s;
+    " onfocus="this.style.borderColor='#eebbc3'" onblur="this.style.borderColor='#b8c1ec'" />
+      </div>
 
       <div class="previewFolder">
         <div class="file-preview" id="filePreview">
@@ -76,9 +93,11 @@
       event.preventDefault(); // Mencegah pengiriman form default
       showToast("Proses upload dimulai...");
       const file = fileInput.files[0];
-      if (file) {
+      const nama = document.getElementById("namaInput").value;
+      if (file && nama) {
         const formData = new FormData();
         formData.append("file", file);
+        formData.append("nama", nama);
         fetch("/store", {
           method: "POST",
           body: formData,
@@ -89,8 +108,9 @@
           })
           .catch((error) => {
             showToast("Terjadi kesalahan saat upload!");
-            // Tampilkan pesan kesalahan atau lakukan tindakan lain
           });
+      } else {
+        showToast("File dan nama harus diisi!");
       }
     });
 

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, Request
+from fastapi import FastAPI, File, UploadFile, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -7,9 +7,25 @@ import build
 from query import getAnswer
 import json
 from query import load_resources
+from database.db import database, metadata, engine
+from database.crud import get_chats
+from contextlib import asynccontextmanager
 
-app = FastAPI()
+metadata.create_all(engine)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await database.connect()
+    print("✅ Database connected")
+
+    yield  # <--- ini penting: app berjalan di antara startup & shutdown
+
+    # Shutdown
+    await database.disconnect()
+    print("❌ Database disconnected")
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,9 +45,10 @@ async def get_input(request: Request):
     return templates.TemplateResponse("input.html", {"request": request})
 
 @app.post("/store")
-async def post_store(file: UploadFile = File(...)):
+async def post_store(file: UploadFile = File(...), nama: str = Form(...)):
     if not file.filename:
         return JSONResponse({"error": "Nama file tidak valid"}, status_code=400)
+
     content = (await file.read()).decode("utf-8")
     docs = []
     if file.filename.endswith(".json"):
@@ -46,10 +63,13 @@ async def post_store(file: UploadFile = File(...)):
                     docs.append(obj["text"])
     else:
         docs = [line.strip() for line in content.splitlines() if line.strip()]
-    build.runBuild(docs)
+    await build.runBuild(nama, docs)
     load_resources.cache_clear()
     return JSONResponse({"message": "File berhasil diunggah dan dibaca"})
 
+@app.get("/chats")
+async def get_all_chats():
+    return await get_all_chats()
 
 @app.post("/search")
 async def post_search(body: dict):
