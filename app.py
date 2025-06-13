@@ -1,12 +1,11 @@
-from fastapi import FastAPI, File, UploadFile, Request, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, File, UploadFile, Form, Request
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import build
 from query import getAnswer
 import json
-from query import load_resources
 from database.db import database, metadata, engine
 from database.crud import get_chats
 from contextlib import asynccontextmanager
@@ -15,13 +14,11 @@ metadata.create_all(engine)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     await database.connect()
     print("✅ Database connected")
 
-    yield  # <--- ini penting: app berjalan di antara startup & shutdown
+    yield
 
-    # Shutdown
     await database.disconnect()
     print("❌ Database disconnected")
 
@@ -35,14 +32,6 @@ app.add_middleware(
 
 app.mount("/public", StaticFiles(directory="public"), name="public")
 templates = Jinja2Templates(directory="templates")
-
-@app.get("/", response_class=HTMLResponse)
-async def get_chat(request: Request):
-    return templates.TemplateResponse("chat.html", {"request": request})
-
-@app.get("/input", response_class=HTMLResponse)
-async def get_input(request: Request):
-    return templates.TemplateResponse("input.html", {"request": request})
 
 @app.post("/store")
 async def post_store(file: UploadFile = File(...), topic: str = Form(...)):
@@ -81,3 +70,7 @@ async def post_search(body: dict):
         return JSONResponse({"error": str(e)}, status_code=404)
     except Exception:
         return JSONResponse({"error": "internal server error"}, status_code=500)
+    
+@app.get("/",response_class=HTMLResponse)
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request":request})
