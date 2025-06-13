@@ -1,4 +1,3 @@
-from functools import lru_cache
 from transformers import AutoTokenizer, AutoModel
 from pathlib import Path
 from dotenv import load_dotenv
@@ -9,16 +8,15 @@ import requests
 import os
 
 load_dotenv()
-@lru_cache(maxsize=None)
-def load_resources():
+def load_resources(name: str = "nasi padang"):
     model_name = "intfloat/multilingual-e5-base"
     huggingFaceKey = os.getenv("HUGGING_FACE_KEY")
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=huggingFaceKey)
     device = torch.device("cuda" if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory >= 4e9 else "cpu")
     model = AutoModel.from_pretrained(model_name, token=huggingFaceKey).to(device)
     model.eval()
-    index_path = "./build/index.faiss"
-    docs_path = "./build/docs.pkl"
+    index_path = f"./build/{name}/index.faiss"
+    docs_path = f"./build/{name}/docs.pkl"
     if not Path(index_path).exists() or not Path(docs_path).exists():
         raise FileNotFoundError("Index files not found")
     index = faiss.read_index(index_path)
@@ -48,11 +46,11 @@ def generate_embeddings(texts, tokenizer, model, device, is_query=False):
     embeddings = sum_embeddings / sum_mask
     return torch.nn.functional.normalize(embeddings, p=2, dim=1).cpu().numpy()
 
-def getAnswer(query, top_k=15, temperature=0.5, nprobe=10):
+def getAnswer(query, top_k=15, temperature=0.5, nprobe=10, name: str = "nasi padang"):
     try:
-        if not Path('./build/docs.pkl').exists() or not Path('./build/index.faiss').exists():
+        if not Path(f'./build/{name}/docs.pkl').exists() or not Path(f'./build/{name}/index.faiss').exists():
             return "Error: Sistem belum dilatih. Silakan jalankan training terlebih dahulu."
-        tokenizer, model, device, index, docs = load_resources()
+        tokenizer, model, device, index, docs = load_resources(name=name)
         if hasattr(index, 'nprobe'):
             index.nprobe = nprobe  # optimasi pencarian cluster
         if index.d != 768:

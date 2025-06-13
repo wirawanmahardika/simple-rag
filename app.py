@@ -45,7 +45,7 @@ async def get_input(request: Request):
     return templates.TemplateResponse("input.html", {"request": request})
 
 @app.post("/store")
-async def post_store(file: UploadFile = File(...), nama: str = Form(...)):
+async def post_store(file: UploadFile = File(...), topic: str = Form(...)):
     if not file.filename:
         return JSONResponse({"error": "Nama file tidak valid"}, status_code=400)
 
@@ -63,18 +63,19 @@ async def post_store(file: UploadFile = File(...), nama: str = Form(...)):
                     docs.append(obj["text"])
     else:
         docs = [line.strip() for line in content.splitlines() if line.strip()]
-    await build.runBuild(nama, docs)
-    load_resources.cache_clear()
+    await build.runBuild(topic, docs)
     return JSONResponse({"message": "File berhasil diunggah dan dibaca"})
 
 @app.get("/chats")
 async def get_all_chats():
-    return await get_all_chats()
+    return await get_chats()
 
 @app.post("/search")
 async def post_search(body: dict):
     try:
-        jawaban = getAnswer(body.get("question", ""))
+        question = body.get("question", "")
+        topicName = body.get("topic", "")
+        jawaban = getAnswer(question, name=topicName)
         return jawaban
     except FileNotFoundError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
